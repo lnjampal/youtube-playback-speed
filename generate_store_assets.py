@@ -71,6 +71,134 @@ def build_promo_tile_svg():
 </svg>"""
 
 
+def build_marquee_tile_svg():
+    """Marquee Promotional Tile for Chrome Web Store Carousel & Featured (1400x560)"""
+    return f"""<svg width="1400" height="560" viewBox="0 0 1400 560" xmlns="http://www.w3.org/2000/svg">
+  <!-- Deep Dark Canvas -->
+  <rect width="1400" height="560" fill="#0c0e15"/>
+  
+  <!-- Subtle Top Accent Line -->
+  <rect x="0" y="0" width="1400" height="4" fill="#ff0033"/>
+  
+  <!-- Soft Background Depth Glows -->
+  <circle cx="240" cy="200" r="180" fill="#ff0033" opacity="0.04"/>
+  <circle cx="1050" cy="300" r="220" fill="#00e5ff" opacity="0.04"/>
+
+  <!-- ================= LEFT BRANDING & VALUE PROP ================= -->
+  <!-- App Icon (100x100) -->
+  <g transform="translate(100, 60)">
+    <rect width="106" height="106" rx="30" fill="#05060a"/>
+    <rect x="3" y="3" width="100" height="100" rx="28" fill="#ff0033"/>
+    <rect x="3" y="3" width="100" height="48" rx="28" fill="#ff2652"/>
+    <rect x="3" y="28" width="100" height="24" fill="#ff0033"/>
+    <rect x="18" y="18" width="70" height="70" rx="18" fill="#140206"/>
+    <polygon points="44,36 44,66 70,51" fill="#ffffff"/>
+    <circle cx="86" cy="84" r="20" fill="#00e5ff" stroke="#0c0e15" stroke-width="4"/>
+    <polygon points="87,73 78,85 86,85 83,95 93,83 85,83" fill="#08101e"/>
+  </g>
+
+  <!-- Title & Headline -->
+  <text x="100" y="222" font-family="{FONT_FAMILY}" font-size="36" font-weight="bold" fill="#ffffff" letter-spacing="0.5">CHANNEL SPEED MEMORY</text>
+  <text x="100" y="258" font-family="{FONT_FAMILY}" font-size="22" font-weight="bold" fill="#ff334b" letter-spacing="1.5">FOR YOUTUBE™</text>
+
+  <!-- Tagline / Subtitle -->
+  <text x="100" y="310" font-family="{FONT_FAMILY}" font-size="18" fill="#9da7b8">Automatically remembers and applies your preferred playback speed</text>
+  <text x="100" y="338" font-family="{FONT_FAMILY}" font-size="18" fill="#9da7b8">for every channel you watch on YouTube.</text>
+
+  <!-- Feature Pill Badges -->
+  <g transform="translate(100, 385)">
+    <!-- Pill 1 -->
+    <rect width="180" height="46" rx="23" fill="#00f5a0"/>
+    <rect x="1.5" y="1.5" width="177" height="43" rx="21.5" fill="#131824"/>
+    <text x="90" y="28" font-family="{FONT_FAMILY}" font-size="13" font-weight="bold" fill="#00f5a0" text-anchor="middle">⚡ Auto-Switching</text>
+
+    <!-- Pill 2 -->
+    <g transform="translate(195, 0)">
+      <rect width="195" height="46" rx="23" fill="#00e5ff"/>
+      <rect x="1.5" y="1.5" width="192" height="43" rx="21.5" fill="#131824"/>
+      <text x="97" y="28" font-family="{FONT_FAMILY}" font-size="13" font-weight="bold" fill="#00e5ff" text-anchor="middle">🎯 ±0.05x Steppers</text>
+    </g>
+
+    <!-- Pill 3 -->
+    <g transform="translate(405, 0)">
+      <rect width="195" height="46" rx="23" fill="#ff334b"/>
+      <rect x="1.5" y="1.5" width="192" height="43" rx="21.5" fill="#131824"/>
+      <text x="97" y="28" font-family="{FONT_FAMILY}" font-size="13" font-weight="bold" fill="#ff6b82" text-anchor="middle">🔒 100% Local &amp; Private</text>
+    </g>
+  </g>
+
+  <!-- ================= RIGHT HERO PREVIEWS ================= -->
+  <!-- Top Right: Floating In-Player HUD Pill (Glossy) -->
+  <g transform="translate(770, 65)">
+    <rect width="524" height="76" rx="38" fill="#00e5ff"/>
+    <rect x="3" y="3" width="518" height="70" rx="35" fill="#0c1220"/>
+    <!-- Cyan Lightning Badge -->
+    <circle cx="44" cy="38" r="22" fill="#00e5ff"/>
+    <polygon points="46,25 36,38 44,38 41,51 53,34 45,34" fill="#06101d"/>
+    <!-- Text -->
+    <text x="82" y="33" font-family="{FONT_FAMILY}" font-size="19" font-weight="bold" fill="#ffffff">Veritasium: 1.75x</text>
+    <text x="82" y="55" font-family="{FONT_FAMILY}" font-size="13" font-weight="bold" fill="#00f5a0">⚡ Applied Automatically on Video Load</text>
+  </g>
+
+  <!-- Bottom Right: Feature Showcase Card -->
+  <g transform="translate(770, 165)">
+    <rect width="524" height="320" rx="18" fill="#141620" stroke="#2d3348" stroke-width="1.8"/>
+    
+    <!-- Active Channel Preview Bar -->
+    <g transform="translate(20, 20)">
+      <rect width="484" height="80" rx="12" fill="#1b1f2e" stroke="#323a50" stroke-width="1.2"/>
+      <circle cx="42" cy="40" r="22" fill="#2b3248" stroke="#ff0033" stroke-width="2"/>
+      <text x="42" y="47" font-family="{FONT_FAMILY}" font-size="19" font-weight="bold" fill="#ffffff" text-anchor="middle">V</text>
+      <text x="76" y="36" font-family="{FONT_FAMILY}" font-size="17" font-weight="bold" fill="#ffffff">Veritasium</text>
+      <text x="76" y="56" font-family="{FONT_FAMILY}" font-size="13" fill="#8d94a5">@veritasium</text>
+      
+      <!-- Speed Pill Badge -->
+      <rect x="366" y="20" width="102" height="40" rx="20" fill="#ff0033"/>
+      <text x="417" y="45" font-family="{FONT_FAMILY}" font-size="17" font-weight="bold" fill="#ffffff" text-anchor="middle">1.75x</text>
+    </g>
+
+    <!-- Speed Presets Preview -->
+    <text x="24" y="125" font-family="{FONT_FAMILY}" font-size="12" font-weight="bold" fill="#8d94a5">QUICK PRESET SPEEDS</text>
+    <g transform="translate(20, 138)">
+      <rect width="74" height="42" rx="8" fill="#202434" stroke="#30374c" stroke-width="1"/>
+      <text x="37" y="26" font-family="{FONT_FAMILY}" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">0.75x</text>
+
+      <rect x="82" width="74" height="42" rx="8" fill="#202434" stroke="#30374c" stroke-width="1"/>
+      <text x="119" y="26" font-family="{FONT_FAMILY}" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">1.00x</text>
+
+      <rect x="164" width="74" height="42" rx="8" fill="#202434" stroke="#30374c" stroke-width="1"/>
+      <text x="201" y="26" font-family="{FONT_FAMILY}" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">1.25x</text>
+
+      <rect x="246" width="74" height="42" rx="8" fill="#202434" stroke="#30374c" stroke-width="1"/>
+      <text x="283" y="26" font-family="{FONT_FAMILY}" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">1.50x</text>
+
+      <!-- Active button -->
+      <rect x="328" width="76" height="42" rx="8" fill="#ff0033"/>
+      <text x="366" y="26" font-family="{FONT_FAMILY}" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">1.75x ★</text>
+
+      <rect x="410" width="74" height="42" rx="8" fill="#202434" stroke="#30374c" stroke-width="1"/>
+      <text x="447" y="26" font-family="{FONT_FAMILY}" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">2.00x</text>
+    </g>
+
+    <!-- Steppers & Sync Status -->
+    <g transform="translate(20, 198)">
+      <rect width="236" height="42" rx="8" fill="#222738" stroke="#343c54" stroke-width="1"/>
+      <text x="118" y="26" font-family="{FONT_FAMILY}" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">− 0.05x Stepper</text>
+
+      <rect x="248" width="236" height="42" rx="8" fill="#222738" stroke="#343c54" stroke-width="1"/>
+      <text x="366" y="26" font-family="{FONT_FAMILY}" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">+ 0.05x Stepper</text>
+    </g>
+
+    <!-- Footer Sync Indicator -->
+    <g transform="translate(20, 260)">
+      <rect width="484" height="44" rx="8" fill="#181b26"/>
+      <circle cx="28" cy="22" r="5" fill="#00f5a0"/>
+      <text x="44" y="27" font-family="{FONT_FAMILY}" font-size="13" font-weight="bold" fill="#d0d5e2">Synchronized with YouTube HTML5 Video Player</text>
+    </g>
+  </g>
+</svg>"""
+
+
 def build_screenshot1_hud_svg():
     """Screenshot 1: In-Player HUD Feature Spotlight (1280x800)"""
     return f"""<svg width="1280" height="800" viewBox="0 0 1280 800" xmlns="http://www.w3.org/2000/svg">
@@ -581,6 +709,7 @@ def main():
 
     assets = [
         ("promo_tile_440x280.png", build_promo_tile_svg()),
+        ("marquee_promo_tile_1400x560.png", build_marquee_tile_svg()),
         ("screenshot1_hud_1280x800.png", build_screenshot1_hud_svg()),
         ("screenshot2_popup_1280x800.png", build_screenshot2_popup_svg()),
         ("screenshot3_channels_1280x800.png", build_screenshot3_channels_svg()),

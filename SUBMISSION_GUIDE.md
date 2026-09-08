@@ -13,6 +13,7 @@ Before opening the Chrome Web Store Developer Console, verify that your delivera
 - [x] **Privacy Policy:** [`PRIVACY_POLICY.md`](file:///Users/ln/Desktop/Youtube-ChromeExtension/PRIVACY_POLICY.md) *(Hosted on your GitHub repository)*.
 - [x] **Store Screenshots (1280x800):** Located in [`store_assets/`](file:///Users/ln/Desktop/Youtube-ChromeExtension/store_assets/).
 - [x] **Small Promo Tile (440x280):** Located in [`store_assets/promo_tile_440x280.png`](file:///Users/ln/Desktop/Youtube-ChromeExtension/store_assets/promo_tile_440x280.png).
+- [x] **Marquee Promo Tile (1400x560):** Located in [`store_assets/marquee_promo_tile_1400x560.png`](file:///Users/ln/Desktop/Youtube-ChromeExtension/store_assets/marquee_promo_tile_1400x560.png).
 - [x] **Store Icon (128x128):** Located in [`icons/icon128.png`](file:///Users/ln/Desktop/Youtube-ChromeExtension/icons/icon128.png).
 
 ---
@@ -74,6 +75,9 @@ Scroll down to the **Graphic assets** section:
 3. **Small Promo Tile (440x280):**
    - Under *Promotional tiles*, click **Small tile** and upload:
      - `store_assets/promo_tile_440x280.png`
+4. **Marquee Promo Tile (1400x560):**
+   - Under *Promotional tiles*, click **Marquee tile** and upload:
+     - `store_assets/marquee_promo_tile_1400x560.png`
 
 *(Tip: You can open [`store_assets/preview.html`](file:///Users/ln/Desktop/Youtube-ChromeExtension/store_assets/preview.html) in your browser to inspect all assets prior to uploading).*
 
