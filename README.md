@@ -59,9 +59,34 @@ Youtube-ChromeExtension/
 │   ├── popup.css            # YouTube-inspired dark styling
 │   └── popup.js             # Tab management, channel search, settings logic
 ├── icons/                   # High-resolution extension icons (16, 48, 128)
+├── store_assets/            # Chrome Web Store promo tile (440x280) and screenshots (1280x800)
+├── dist/                    # Packaged production ZIP archives for Web Store upload
+├── package.js               # Production ZIP packager script
+├── generate_store_assets.py # Standalone store graphic assets generator
+├── STORE_LISTING.md         # Ready-to-use Chrome Web Store metadata & justifications
+├── SUBMISSION_GUIDE.md      # Step-by-step developer console submission walkthrough
+├── PRIVACY_POLICY.md       # Full privacy disclosure compliant with CWS user data policy
 ├── LICENSE                  # MIT License & disclaimers
 └── README.md
 ```
+
+---
+
+## 📦 Building for Chrome Web Store
+
+To build a clean production ZIP archive containing only runtime extension files (excluding test suites, scripts, and documentation):
+
+```bash
+node package.js
+```
+
+This creates `dist/channel-speed-memory-v1.0.0.zip` ready for upload to the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole). See [SUBMISSION_GUIDE.md](SUBMISSION_GUIDE.md) and [STORE_LISTING.md](STORE_LISTING.md) for full instructions.
+
+---
+
+## 🔒 Privacy Policy
+
+All channel playback speed preferences are stored strictly locally in your browser using Chrome's `chrome.storage.local`. No data is ever collected, tracked, or transmitted. Read our complete [Privacy Policy](PRIVACY_POLICY.md).
 
 ---
 
