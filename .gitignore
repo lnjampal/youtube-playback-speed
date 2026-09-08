@@ -2,3 +2,4 @@ test-profile/
 *.log
 .DS_Store
 diagnose_live.js
+.cache/
