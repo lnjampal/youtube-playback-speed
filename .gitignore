@@ -1,5 +1,31 @@
-test-profile/
-*.log
+# Environment variables & secrets
+.env
+.env.*
+*.pem
+*.key
+*.cert
+*.pfx
+
+# Operating System & IDE metadata
 .DS_Store
-diagnose_live.js
+*/.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Local debugging & browser test profiles
+test-profile/
 .cache/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+diagnose_live.js
+
+# Temporary files
+*.tmp
+*.swp
+*.bak
+*~
