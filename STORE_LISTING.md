@@ -95,6 +95,11 @@ Automatically remembers, stores, and restores the user's preferred video playbac
 Required to detect channel handle and identifier on YouTube watch pages, read playback rate changes made by the user, and apply the saved playback speed to YouTube's HTML5 video player element. The extension only executes on youtube.com and does not access any other website.
 ```
 
+### Host Permissions Justification (`https://api.gumroad.com/*`)
+```text
+Required to verify the user's license key when activating the optional PRO tier via Gumroad's official License Verification API. No user data other than the entered license key is sent.
+```
+
 ### Storage Permission Justification (`storage`)
 ```text
 Required to save user preferences, fallback default speed, HUD display settings, and channel-to-speed mappings locally in chrome.storage.local so they persist across browser sessions.

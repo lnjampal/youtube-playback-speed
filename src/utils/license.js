@@ -28,6 +28,22 @@
   };
 
   /**
+   * Determine if the extension is running in development mode (unpacked or Node test environment)
+   * On the Chrome Web Store, chrome.runtime.getManifest().update_url is automatically populated by Google.
+   */
+  function isDevelopmentEnvironment() {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getManifest === 'function') {
+        const manifest = chrome.runtime.getManifest();
+        return !manifest || !manifest.update_url;
+      }
+      return true; // Node.js test environment
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
    * Check if current user has an active Pro license
    * @param {Object} [settings] - Optional pre-loaded settings object
    * @returns {Promise<boolean>}
@@ -44,7 +60,7 @@
 
   /**
    * Activate a license key
-   * Supports built-in dev test keys for offline testing, plus Gumroad API verification.
+   * Supports built-in dev test keys for offline testing (dev mode only), plus Gumroad API verification.
    * 
    * @param {string} rawKey - The license key entered by the user
    * @param {Object} [options] - Verification options
@@ -61,8 +77,8 @@
       return { success: false, message: 'License key cannot be empty.' };
     }
 
-    // 1. Check for Offline Developer / Test Keys
-    if (DEV_TEST_KEYS.has(key.toUpperCase())) {
+    // 1. Check for Offline Developer / Test Keys (active in unpacked/dev mode only)
+    if (isDevelopmentEnvironment() && DEV_TEST_KEYS.has(key.toUpperCase())) {
       const licenseData = {
         isPro: true,
         licenseKey: key.toUpperCase(),

@@ -23,9 +23,10 @@ The Extension only handles data strictly necessary to fulfill its single purpose
 | :--- | :--- | :--- | :--- |
 | **Channel Identifiers** (e.g. `@channel_handle` or Channel ID) | Used to associate a specific YouTube channel with your preferred playback speed. | Locally on your computer via `chrome.storage.local` | **No (Never)** |
 | **Playback Speeds** (e.g. `1.75x`) | The speed value you selected for a channel or your default fallback speed. | Locally on your computer via `chrome.storage.local` | **No (Never)** |
-| **Extension Preferences** (e.g. HUD notifications enabled, HUD duration) | UI display preferences. | Locally on your computer via `chrome.storage.local` | **No (Never)** |
+| **Extension Preferences** (e.g. HUD notifications enabled, HUD duration, Auto-Close Live Chat) | UI and playback display preferences. | Locally on your computer via `chrome.storage.local` | **No (Never)** |
+| **License Key & Pro Status** | Used to unlock optional PRO features. | Locally on your computer via `chrome.storage.local` | **Only during manual Pro activation** (sent directly to `api.gumroad.com` to verify key validity). |
 
-**None of this data ever leaves your computer or browser.**
+**Browsing history, watch data, and personal YouTube information never leave your browser.**
 
 ---
 
@@ -34,16 +35,19 @@ The Extension only handles data strictly necessary to fulfill its single purpose
 In accordance with the principle of least privilege, the Extension only requests permissions that are strictly necessary for its functionality:
 
 1. **`storage`**:
-   - **Why it is needed:** Required to save your channel speed preferences and settings locally in your browser using Chrome's secure `chrome.storage.local` API so they persist between browsing sessions.
+   - **Why it is needed:** Required to save your channel speed preferences, settings, and optional Pro status locally in your browser using Chrome's secure `chrome.storage.local` API so they persist between browsing sessions.
 2. **`host_permissions: ["*://*.youtube.com/*"]`**:
-   - **Why it is needed:** Required to detect when you are watching a video on YouTube, identify the current channel, read your speed adjustments, and apply your saved playback speed to YouTube's HTML5 video player.
-   - **Scope:** The Extension has no access to any website other than `youtube.com`.
+   - **Why it is needed:** Required to detect when you are watching a video on YouTube, identify the current channel, read your speed adjustments, apply your saved playback speed to YouTube's HTML5 video player, and optionally close the live chat window on live streams.
+   - **Scope:** The Extension only executes its content scripts on `youtube.com`.
+3. **`host_permissions: ["https://api.gumroad.com/*"]`**:
+   - **Why it is needed:** Required strictly to verify license keys when the user voluntarily activates the optional PRO tier.
+   - **Scope:** Only used to query `https://api.gumroad.com/v2/licenses/verify` during activation.
 
 ---
 
 ## 4. Third-Party Services & Data Sharing
 
-- **No Remote Servers:** The Extension has no backend server and makes zero network requests.
+- **Gumroad License Verification:** If you choose to upgrade to PRO, your entered license key is sent directly to Gumroad's secure verification API (`api.gumroad.com`) to check license validity. No personal data or browsing activity is included.
 - **No Analytics or Trackers:** No tracking libraries (such as Google Analytics, Mixpanel, etc.) are included.
 - **No Data Monetization:** We do not sell, rent, trade, or transfer any user data to third parties for advertising, marketing, or any other purpose.
 

@@ -337,6 +337,16 @@
           typeof imported.settings.toastDuration === 'number' && Number.isFinite(imported.settings.toastDuration)
             ? Math.max(500, Math.min(10000, Math.round(imported.settings.toastDuration)))
             : current.toastDuration,
+        autoCloseLiveChat:
+          typeof imported.settings.autoCloseLiveChat === 'boolean'
+            ? imported.settings.autoCloseLiveChat
+            : current.autoCloseLiveChat,
+        isPro: current.isPro || Boolean(imported.settings.isPro),
+        licenseKey:
+          current.licenseKey ||
+          (typeof imported.settings.licenseKey === 'string'
+            ? imported.settings.licenseKey.slice(0, 128)
+            : ''),
       };
     }
 
@@ -352,7 +362,7 @@
       getSettings(),
     ]);
     return {
-      version: '1.0.0',
+      version: '1.1.0',
       exportedAt: new Date().toISOString(),
       channel_speeds,
       settings,
