@@ -9,7 +9,13 @@ class MockElement {
     this.tagName = tagName.toUpperCase();
     this.attrs = { ...attrs };
     this.children = [];
-    this.classList = new Set();
+    this.classList = {
+      _set: new Set(),
+      contains(c) { return this._set.has(c); },
+      add(c) { this._set.add(c); },
+      remove(c) { this._set.delete(c); },
+      has(c) { return this._set.has(c); }
+    };
     this.clickCount = 0;
     this.offsetParent = {}; // Simulates being visible in layout
   }
@@ -142,17 +148,15 @@ function createLiveChatManager(initialSettings = {}) {
 
     const chatFrame = document.querySelector('ytd-live-chat-frame#chat, #chat');
     if (chatFrame) {
-      if (chatFrame.hasAttribute('collapsed')) {
-        hasAutoClosedLiveChatForThisVideo = true;
-        return;
-      }
-
-      for (const sel of HIDE_CHAT_SELECTORS) {
-        const btn = document.querySelector(sel);
-        if (btn && typeof btn.click === 'function') {
-          btn.click();
-          hasAutoClosedLiveChatForThisVideo = true;
-          return;
+      const isCollapsed = chatFrame.hasAttribute('collapsed') || (chatFrame.classList && chatFrame.classList.contains('collapsed'));
+      if (!isCollapsed) {
+        for (const sel of HIDE_CHAT_SELECTORS) {
+          const btn = document.querySelector(sel);
+          if (btn && typeof btn.click === 'function') {
+            btn.click();
+            hasAutoClosedLiveChatForThisVideo = true;
+            return;
+          }
         }
       }
     }
@@ -240,6 +244,23 @@ async function runTests() {
   assert.strictEqual(chatFrame.hasAttribute('collapsed'), true, 'Chat frame must be collapsed for the new video');
   console.log('  ✔ New stream navigation cleanly resets state and auto-closes chat.\n');
 
+  // Test 6: Channel switching test - transitioning from a video where chat was already collapsed
+  console.log('6. Testing channel switch from collapsed state to a new live stream...');
+  // Chat starts with 'collapsed' from previous video
+  assert.strictEqual(chatFrame.hasAttribute('collapsed'), true);
+  
+  // Navigate to new channel
+  manager.onNewVideo();
+  
+  // The new live stream mounts and uncollapses chat
+  chatFrame.removeAttribute('collapsed');
+  
+  // Extension observer detects open chat and closes it
+  manager.triggerAutoClose(manager.getState().currentNavToken);
+  assert.strictEqual(hideButton.clickCount, 3, 'Hide button must be clicked when new channel chat opens');
+  assert.strictEqual(chatFrame.hasAttribute('collapsed'), true, 'Chat frame must be collapsed on the new channel');
+  console.log('  ✔ Channel switch from collapsed video to new live stream successfully auto-closed.\n');
+
   console.log('====================================================');
   console.log('🎉 ALL LIVE CHAT AUTO-CLOSE TESTS PASSED (100%)!   ');
   console.log('====================================================\n');
@@ -249,3 +270,4 @@ runTests().catch((err) => {
   console.error('❌ Test failed:', err);
   process.exit(1);
 });
+

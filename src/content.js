@@ -79,12 +79,15 @@
   }
 
   /**
-   * Determine if current page is a watch or shorts page
+   * Determine if current page is a watch, live stream, or shorts page
    */
   function isWatchPage() {
+    const path = window.location.pathname;
     return (
-      window.location.pathname === '/watch' ||
-      window.location.pathname.startsWith('/shorts/')
+      path === '/watch' ||
+      path.startsWith('/shorts/') ||
+      path.startsWith('/live/') ||
+      path.endsWith('/live')
     );
   }
 
@@ -92,11 +95,28 @@
    * Extract video ID from current URL
    */
   function getVideoId() {
-    if (window.location.pathname.startsWith('/shorts/')) {
-      return window.location.pathname.split('/shorts/')[1]?.split(/[?#&]/)[0] || null;
+    const path = window.location.pathname;
+    if (path.startsWith('/shorts/')) {
+      return path.split('/shorts/')[1]?.split(/[?#&]/)[0] || null;
+    }
+    if (path.startsWith('/live/')) {
+      return path.split('/live/')[1]?.split(/[?#&]/)[0] || null;
     }
     const params = new URLSearchParams(window.location.search);
-    return params.get('v');
+    const vParam = params.get('v');
+    if (vParam) return vParam;
+
+    // Fallback for /@channel/live: check canonical link or flexy element
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical && canonical.href) {
+      const match = canonical.href.match(/[?&]v=([^&#]+)/) || canonical.href.match(/\/live\/([^/?#&]+)/);
+      if (match) return match[1];
+    }
+    const flexy = document.querySelector('ytd-watch-flexy');
+    if (flexy && flexy.getAttribute('video-id')) {
+      return flexy.getAttribute('video-id');
+    }
+    return null;
   }
 
   /**
@@ -136,6 +156,15 @@
     currentChannel = { id: null, handle: null, channelId: null, name: null };
     currentVideoId = null;
     lastAppliedSpeed = null;
+    hasAutoClosedLiveChatForThisVideo = false;
+    if (liveChatCheckTimer) {
+      clearTimeout(liveChatCheckTimer);
+      liveChatCheckTimer = null;
+    }
+    if (liveChatObserver) {
+      liveChatObserver.disconnect();
+      liveChatObserver = null;
+    }
   }
 
   function onNavigateFinish() {
@@ -223,6 +252,11 @@
       }
     }
 
+    // Ensure live chat auto-close is triggered if chat finished mounting during channel resolution
+    if (settings.enabled && settings.isPro && settings.autoCloseLiveChat) {
+      triggerAutoCloseLiveChat(navToken);
+    }
+
     // Setup ad watcher to restore channel speed when ads end
     setupAdObserver();
 
@@ -240,9 +274,47 @@
     '#chat-container #show-hide-button button',
     'ytd-watch-flexy #chat #show-hide-button ytd-toggle-button-renderer button',
     'ytd-live-chat-frame button#show-hide-button',
+    '#show-hide-button yt-button-shape button',
+    '#show-hide-button tp-yt-paper-button',
+    '#show-hide-button ytd-button-renderer button',
     'button[aria-label*="Hide chat" i]',
     'button[aria-label*="Hide live chat" i]',
+    'button[aria-label*="Hide replay" i]',
   ];
+
+  /**
+   * Resiliently locate the native YouTube "Hide chat" button
+   */
+  function findHideChatButton() {
+    // 1. Check known selectors
+    for (const sel of HIDE_CHAT_SELECTORS) {
+      const btn = document.querySelector(sel);
+      if (btn && typeof btn.click === 'function') {
+        const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+        // Ensure it's not the "Show chat" button
+        if (!label.includes('show')) {
+          return btn;
+        }
+      }
+    }
+
+    // 2. Scan all buttons inside chat containers
+    const containers = document.querySelectorAll('#show-hide-button, ytd-live-chat-frame, #chat, #chat-container');
+    for (const container of containers) {
+      const buttons = container.querySelectorAll('button, yt-button-shape, tp-yt-paper-button');
+      for (const btn of buttons) {
+        const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+        const text = (btn.textContent || '').trim().toLowerCase();
+        const isHide = label.includes('hide') || text.includes('hide');
+        const isChat = label.includes('chat') || label.includes('replay') || text.includes('chat') || text.includes('replay');
+        if (isHide && isChat && !label.includes('show') && !text.includes('show')) {
+          return btn;
+        }
+      }
+    }
+
+    return null;
+  }
 
   /**
    * Automatically close live chat on live streams (Pro feature).
@@ -254,7 +326,7 @@
     }
 
     let attempts = 0;
-    const maxAttempts = 16; // Check over ~4 seconds
+    const maxAttempts = 24; // Check over ~6 seconds during channel transitions
 
     function checkAndClose() {
       if (hasAutoClosedLiveChatForThisVideo || navToken !== currentNavToken) {
@@ -267,25 +339,30 @@
       // Check if chat container/frame exists in DOM
       const chatFrame = document.querySelector('ytd-live-chat-frame#chat, #chat.ytd-watch-flexy, #chat');
       if (chatFrame) {
-        // If already collapsed or hidden, mark as handled so we don't interfere
-        if (chatFrame.hasAttribute('collapsed') || chatFrame.classList.contains('collapsed')) {
-          hasAutoClosedLiveChatForThisVideo = true;
-          return;
-        }
+        const isCollapsed = chatFrame.hasAttribute('collapsed') || chatFrame.classList.contains('collapsed');
 
-        // Search for native YouTube hide button
-        for (const sel of HIDE_CHAT_SELECTORS) {
-          const btn = document.querySelector(sel);
+        // Only attempt to close if it is currently OPEN (not collapsed)
+        if (!isCollapsed) {
+          const btn = findHideChatButton();
           if (btn && typeof btn.click === 'function') {
             btn.click();
-            hasAutoClosedLiveChatForThisVideo = true;
-            return;
+            btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+
+            // Verify if chat collapsed after the click
+            setTimeout(() => {
+              const cf = document.querySelector('ytd-live-chat-frame#chat, #chat.ytd-watch-flexy, #chat');
+              if (cf && (cf.hasAttribute('collapsed') || cf.classList.contains('collapsed'))) {
+                hasAutoClosedLiveChatForThisVideo = true;
+              }
+            }, 100);
           }
+        } else if (hasAutoClosedLiveChatForThisVideo) {
+          return;
         }
       }
 
       attempts++;
-      if (attempts < maxAttempts) {
+      if (attempts < maxAttempts && !hasAutoClosedLiveChatForThisVideo) {
         liveChatCheckTimer = setTimeout(checkAndClose, 250);
       }
     }
@@ -307,16 +384,16 @@
         checkAndClose();
       });
 
-      const target = document.querySelector('ytd-watch-flexy, #columns, #primary') || document.body;
+      const target = document.querySelector('ytd-app') || document.querySelector('ytd-watch-flexy, #columns, #primary') || document.body;
       if (target) {
         liveChatObserver.observe(target, { childList: true, subtree: true });
-        // Automatically disconnect observer after 6 seconds to conserve resources
+        // Automatically disconnect observer after 7 seconds to conserve resources
         setTimeout(() => {
           if (liveChatObserver) {
             liveChatObserver.disconnect();
             liveChatObserver = null;
           }
-        }, 6000);
+        }, 7000);
       }
     }
   }
