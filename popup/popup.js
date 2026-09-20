@@ -34,11 +34,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnExportData = document.getElementById('btn-export-data');
   const fileImportData = document.getElementById('file-import-data');
 
+  // PRO Elements
+  const proStatusBadge = document.getElementById('pro-status-badge');
+  const settingAutoCloseChat = document.getElementById('setting-auto-close-chat');
+  const wrapAutoCloseChat = document.getElementById('wrap-auto-close-chat');
+  const btnOpenProModal = document.getElementById('btn-open-pro-modal');
+  const proModal = document.getElementById('pro-modal');
+  const btnCloseProModal = document.getElementById('btn-close-pro-modal');
+  const inputLicenseKey = document.getElementById('input-license-key');
+  const btnActivateLicense = document.getElementById('btn-activate-license');
+  const licenseStatusMsg = document.getElementById('license-status-msg');
+
   // Local state
   let activeTabId = null;
   let activeChannel = null;
   let currentSpeed = 1.0;
   let allSavedChannels = {};
+  let isPro = false;
 
   // Initialize
   await initSettings();
@@ -57,6 +69,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     setSelectedSpeedOption(settingDefaultSpeed, settings.defaultSpeed);
     settingShowToast.checked = settings.showToast !== false;
     setSelectedDropdownByValue(settingToastDuration, settings.toastDuration);
+
+    isPro = Boolean(settings.isPro);
+    updateProUI(isPro, settings.licenseKey);
+    if (settingAutoCloseChat) {
+      settingAutoCloseChat.checked = isPro && Boolean(settings.autoCloseLiveChat);
+    }
+  }
+
+  /**
+   * Update PRO UI elements based on license status
+   */
+  function updateProUI(proActive, licenseKey = '') {
+    isPro = proActive;
+    if (proStatusBadge) {
+      proStatusBadge.textContent = proActive ? 'PRO' : 'FREE';
+      proStatusBadge.className = proActive ? 'pro-badge-pill active-pro-badge' : 'pro-badge-pill free-badge';
+    }
+    if (btnOpenProModal) {
+      if (proActive) {
+        btnOpenProModal.textContent = 'Manage License';
+        btnOpenProModal.classList.add('manage-mode');
+      } else {
+        btnOpenProModal.innerHTML = '<span class="btn-sparkle">✨</span> Upgrade to PRO';
+        btnOpenProModal.classList.remove('manage-mode');
+      }
+    }
+    if (inputLicenseKey && licenseKey) {
+      inputLicenseKey.value = licenseKey;
+    }
   }
 
   /**
@@ -458,6 +499,92 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       };
       reader.readAsText(file);
+    });
+
+    // PRO Settings & Modal Events
+    wrapAutoCloseChat?.addEventListener('click', (e) => {
+      if (!isPro) {
+        e.preventDefault();
+        openProModal();
+      }
+    });
+
+    settingAutoCloseChat?.addEventListener('change', async () => {
+      if (!isPro) {
+        settingAutoCloseChat.checked = false;
+        openProModal();
+        return;
+      }
+      await window.SpeedStorage.updateSettings({
+        autoCloseLiveChat: settingAutoCloseChat.checked,
+      });
+      notifyActiveTabSettingsUpdated();
+    });
+
+    btnOpenProModal?.addEventListener('click', openProModal);
+    btnCloseProModal?.addEventListener('click', closeProModal);
+    proModal?.addEventListener('click', (e) => {
+      if (e.target === proModal) closeProModal();
+    });
+
+    function openProModal() {
+      if (proModal) {
+        proModal.style.display = 'flex';
+        if (licenseStatusMsg) {
+          licenseStatusMsg.textContent = '';
+          licenseStatusMsg.className = 'license-status-msg';
+        }
+      }
+    }
+
+    function closeProModal() {
+      if (proModal) {
+        proModal.style.display = 'none';
+      }
+    }
+
+    async function handleActivateLicense() {
+      if (!window.LicenseManager || !inputLicenseKey) return;
+      const key = inputLicenseKey.value.trim();
+      if (!key) {
+        showLicenseMsg('Please enter a license key.', false);
+        return;
+      }
+
+      btnActivateLicense.disabled = true;
+      btnActivateLicense.textContent = 'Verifying...';
+
+      const result = await window.LicenseManager.activateLicense(key);
+      btnActivateLicense.disabled = false;
+      btnActivateLicense.textContent = 'Activate';
+
+      if (result.success) {
+        showLicenseMsg(result.message, true);
+        isPro = true;
+        updateProUI(true, key);
+        if (settingAutoCloseChat) {
+          settingAutoCloseChat.checked = true;
+          await window.SpeedStorage.updateSettings({ autoCloseLiveChat: true });
+        }
+        notifyActiveTabSettingsUpdated();
+        setTimeout(() => {
+          closeProModal();
+        }, 1400);
+      } else {
+        showLicenseMsg(result.message, false);
+      }
+    }
+
+    function showLicenseMsg(msg, isSuccess) {
+      if (licenseStatusMsg) {
+        licenseStatusMsg.textContent = msg;
+        licenseStatusMsg.className = `license-status-msg ${isSuccess ? 'success' : 'error'}`;
+      }
+    }
+
+    btnActivateLicense?.addEventListener('click', handleActivateLicense);
+    inputLicenseKey?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleActivateLicense();
     });
   }
 

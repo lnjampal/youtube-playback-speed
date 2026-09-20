@@ -152,6 +152,37 @@
         </div>
       </div>
 
+      <!-- PRO Features Group -->
+      <div class="settings-group pro-group">
+        <div class="pro-header-row">
+          <div class="pro-title-wrap">
+            <span class="pro-crown">👑</span>
+            <span class="group-title pro-title">PRO FEATURES</span>
+          </div>
+          <span id="pro-status-badge" class="pro-badge-pill free-badge">FREE</span>
+        </div>
+
+        <div class="setting-item pro-setting-item">
+          <div class="setting-info">
+            <div class="label-with-badge">
+              <span class="setting-label">Auto-Close Live Chat</span>
+              <span class="pro-tag">PRO</span>
+            </div>
+            <span class="setting-hint">Hides live chat window by default on live streams</span>
+          </div>
+          <label class="switch" id="wrap-auto-close-chat">
+            <input type="checkbox" id="setting-auto-close-chat">
+            <span class="slider round"></span>
+          </label>
+        </div>
+
+        <div id="pro-manage-row" class="pro-manage-row">
+          <button id="btn-open-pro-modal" class="pro-action-btn">
+            <span class="btn-sparkle">✨</span> Upgrade to PRO
+          </button>
+        </div>
+      </div>
+
       <!-- Backup and Restore -->
       <div class="settings-group">
         <span class="group-title">Backup & Restore</span>
@@ -173,14 +204,68 @@
       </div>
 
       <div class="about-card">
-        <p class="version-text">Channel Speed Memory for YouTube™ v1.0.0</p>
+        <p class="version-text">Channel Speed Memory for YouTube™ v1.1.0</p>
         <p class="about-hint">Automatically saves & applies speed per YouTube channel.</p>
         <p class="disclaimer-text" style="font-size: 10px; color: #777; margin-top: 8px; line-height: 1.3;">YouTube is a trademark of Google LLC. Use of this trademark is subject to Google Permissions.</p>
       </div>
     </section>
+
+    <!-- PRO Upgrade & License Modal -->
+    <div id="pro-modal" class="modal-backdrop" style="display: none;">
+      <div class="modal-card">
+        <button id="btn-close-pro-modal" class="modal-close-btn" title="Close">&times;</button>
+        
+        <div class="modal-header">
+          <div class="modal-icon-badge">👑</div>
+          <h3 class="modal-title">Speed Memory PRO</h3>
+          <p class="modal-subtitle">Enjoy distraction-free live streams with automatic live chat closing.</p>
+        </div>
+
+        <div class="modal-features">
+          <div class="feature-row">
+            <span class="feature-icon">⚡</span>
+            <div class="feature-desc">
+              <strong>Auto-Close Live Chat</strong>
+              <p>Automatically collapse chat on live streams for full-width video viewing.</p>
+            </div>
+          </div>
+          <div class="feature-row">
+            <span class="feature-icon">👁️</span>
+            <div class="feature-desc">
+              <strong>Respects Manual Control</strong>
+              <p>Re-open chat anytime during a stream without the extension fighting your choice.</p>
+            </div>
+          </div>
+          <div class="feature-row">
+            <span class="feature-icon">✨</span>
+            <div class="feature-desc">
+              <strong>Lifetime License</strong>
+              <p>Pay once on Gumroad, keep forever. All future PRO features included.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <a href="https://gumroad.com" target="_blank" id="btn-buy-license" class="primary-btn buy-btn">
+            Get PRO License on Gumroad
+          </a>
+
+          <div class="license-divider">
+            <span>or enter your license key</span>
+          </div>
+
+          <div class="license-input-group">
+            <input type="text" id="input-license-key" placeholder="e.g. PRO-XXXX-XXXX" spellcheck="false" autocomplete="off">
+            <button id="btn-activate-license" class="secondary-btn activate-btn">Activate</button>
+          </div>
+          <p id="license-status-msg" class="license-status-msg"></p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="../src/utils/storage.js"></script>
+  <script src="../src/utils/license.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

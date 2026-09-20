@@ -29,7 +29,8 @@ const RUNTIME_FILES = [
   'src/content.js',
   'src/content.css',
   'src/main-world.js',
-  'src/utils/storage.js'
+  'src/utils/storage.js',
+  'src/utils/license.js'
 ];
 
 function buildRelease() {

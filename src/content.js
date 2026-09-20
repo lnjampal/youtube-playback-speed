@@ -23,9 +23,15 @@
     defaultSpeed: 1.0,
     showToast: true,
     toastDuration: 2000,
+    autoCloseLiveChat: false,
+    isPro: false,
+    licenseKey: '',
   };
 
   let currentNavToken = 0;
+  let hasAutoClosedLiveChatForThisVideo = false;
+  let liveChatCheckTimer = null;
+  let liveChatObserver = null;
 
   /**
    * Track user gestures (clicks, pointer, keys) to verify deliberate speed changes
@@ -170,6 +176,17 @@
     currentChannel = { id: null, handle: null, channelId: null, name: null };
     lastUserInteractionTime = 0;
 
+    // Reset live chat auto-close state for the new video
+    hasAutoClosedLiveChatForThisVideo = false;
+    if (liveChatCheckTimer) {
+      clearTimeout(liveChatCheckTimer);
+      liveChatCheckTimer = null;
+    }
+    if (liveChatObserver) {
+      liveChatObserver.disconnect();
+      liveChatObserver = null;
+    }
+
     // Refresh settings
     if (window.SpeedStorage) {
       settings = await window.SpeedStorage.getSettings();
@@ -182,6 +199,11 @@
 
     // Attach to video element
     bindVideoElement();
+
+    // Auto-close live chat on live streams (Pro feature)
+    if (settings.enabled && settings.isPro && settings.autoCloseLiveChat) {
+      triggerAutoCloseLiveChat(navToken);
+    }
 
     // Resolve channel information specifically for THIS new video
     const channelInfo = await resolveChannelInfoWithRetry(newVideoId, navToken, 4000);
@@ -210,6 +232,93 @@
         isNavigating = false;
       }
     }, 600);
+  }
+
+  const HIDE_CHAT_SELECTORS = [
+    'ytd-live-chat-frame #show-hide-button button',
+    '#chat #show-hide-button button',
+    '#chat-container #show-hide-button button',
+    'ytd-watch-flexy #chat #show-hide-button ytd-toggle-button-renderer button',
+    'ytd-live-chat-frame button#show-hide-button',
+    'button[aria-label*="Hide chat" i]',
+    'button[aria-label*="Hide live chat" i]',
+  ];
+
+  /**
+   * Automatically close live chat on live streams (Pro feature).
+   * Respects user override if they manually re-open the chat during this stream.
+   */
+  function triggerAutoCloseLiveChat(navToken) {
+    if (hasAutoClosedLiveChatForThisVideo || navToken !== currentNavToken) {
+      return;
+    }
+
+    let attempts = 0;
+    const maxAttempts = 16; // Check over ~4 seconds
+
+    function checkAndClose() {
+      if (hasAutoClosedLiveChatForThisVideo || navToken !== currentNavToken) {
+        return;
+      }
+      if (!settings.enabled || !settings.isPro || !settings.autoCloseLiveChat) {
+        return;
+      }
+
+      // Check if chat container/frame exists in DOM
+      const chatFrame = document.querySelector('ytd-live-chat-frame#chat, #chat.ytd-watch-flexy, #chat');
+      if (chatFrame) {
+        // If already collapsed or hidden, mark as handled so we don't interfere
+        if (chatFrame.hasAttribute('collapsed') || chatFrame.classList.contains('collapsed')) {
+          hasAutoClosedLiveChatForThisVideo = true;
+          return;
+        }
+
+        // Search for native YouTube hide button
+        for (const sel of HIDE_CHAT_SELECTORS) {
+          const btn = document.querySelector(sel);
+          if (btn && typeof btn.click === 'function') {
+            btn.click();
+            hasAutoClosedLiveChatForThisVideo = true;
+            return;
+          }
+        }
+      }
+
+      attempts++;
+      if (attempts < maxAttempts) {
+        liveChatCheckTimer = setTimeout(checkAndClose, 250);
+      }
+    }
+
+    // Immediate check
+    checkAndClose();
+
+    // Also observe DOM in case chat iframe mounts asynchronously
+    if (!hasAutoClosedLiveChatForThisVideo && typeof MutationObserver !== 'undefined') {
+      if (liveChatObserver) liveChatObserver.disconnect();
+      liveChatObserver = new MutationObserver(() => {
+        if (navToken !== currentNavToken || hasAutoClosedLiveChatForThisVideo) {
+          if (liveChatObserver) {
+            liveChatObserver.disconnect();
+            liveChatObserver = null;
+          }
+          return;
+        }
+        checkAndClose();
+      });
+
+      const target = document.querySelector('ytd-watch-flexy, #columns, #primary') || document.body;
+      if (target) {
+        liveChatObserver.observe(target, { childList: true, subtree: true });
+        // Automatically disconnect observer after 6 seconds to conserve resources
+        setTimeout(() => {
+          if (liveChatObserver) {
+            liveChatObserver.disconnect();
+            liveChatObserver = null;
+          }
+        }, 6000);
+      }
+    }
   }
 
   /**
@@ -807,6 +916,10 @@
                   showHudToast(currentChannel.name, settings.defaultSpeed, 'Default');
                 }
               }
+            }
+            // If live chat auto-close was just enabled, attempt to close chat if on stream
+            if (settings.enabled && settings.isPro && settings.autoCloseLiveChat && isWatchPage()) {
+              triggerAutoCloseLiveChat(currentNavToken);
             }
             sendResponse({ success: true });
           });

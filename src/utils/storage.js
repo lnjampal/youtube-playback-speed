@@ -21,6 +21,9 @@
     defaultSpeed: 1.0,
     showToast: true,
     toastDuration: 2000, // milliseconds
+    autoCloseLiveChat: false,
+    isPro: false,
+    licenseKey: '',
   };
 
   // Block prototype pollution properties
@@ -242,6 +245,10 @@
         typeof raw.toastDuration === 'number' && Number.isFinite(raw.toastDuration)
           ? Math.max(500, Math.min(10000, Math.round(raw.toastDuration)))
           : DEFAULT_SETTINGS.toastDuration,
+      autoCloseLiveChat:
+        typeof raw.autoCloseLiveChat === 'boolean' ? raw.autoCloseLiveChat : DEFAULT_SETTINGS.autoCloseLiveChat,
+      isPro: typeof raw.isPro === 'boolean' ? raw.isPro : DEFAULT_SETTINGS.isPro,
+      licenseKey: typeof raw.licenseKey === 'string' ? raw.licenseKey.slice(0, 128) : DEFAULT_SETTINGS.licenseKey,
     };
   }
 
@@ -273,6 +280,15 @@
       if (!isNaN(parsedDuration) && Number.isFinite(parsedDuration)) {
         cleanUpdate.toastDuration = Math.max(500, Math.min(10000, Math.round(parsedDuration)));
       }
+    }
+    if (typeof newSettings.autoCloseLiveChat === 'boolean') {
+      cleanUpdate.autoCloseLiveChat = newSettings.autoCloseLiveChat;
+    }
+    if (typeof newSettings.isPro === 'boolean') {
+      cleanUpdate.isPro = newSettings.isPro;
+    }
+    if (typeof newSettings.licenseKey === 'string') {
+      cleanUpdate.licenseKey = newSettings.licenseKey.slice(0, 128);
     }
 
     const merged = { ...current, ...cleanUpdate };
@@ -353,6 +369,7 @@
     clearAllChannelSpeeds,
     getSettings,
     updateSettings,
+    saveSettings: updateSettings,
     importData,
     exportData,
   };

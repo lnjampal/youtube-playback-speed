@@ -29,3 +29,6 @@ diagnose_live.js
 *.swp
 *.bak
 *~
+
+# Unrelated standalone projects
+delta-futures-app/
