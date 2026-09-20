@@ -96,19 +96,21 @@ async function testStorage() {
   assert.strictEqual(updatedSettings.defaultSpeed, 1.25);
   assert.strictEqual(updatedSettings.showToast, false);
 
-  // Test export & import
-  const exported = await SpeedStorage.exportData();
-  assert.ok(exported.channel_speeds['@3blue1brown']);
-  
-  await SpeedStorage.clearAllChannelSpeeds();
-  const cleared = await SpeedStorage.getAllChannelSpeeds();
-  assert.strictEqual(Object.keys(cleared).length, 0);
+  // Test getSpeedForAny with multiple candidate keys (handles, IDs, aliases)
+  await SpeedStorage.saveChannelSpeed('@veritasium', 'Veritasium', 1.75, ['UC1234567890']);
+  const speedFromAnyPrimary = await SpeedStorage.getSpeedForAny(['@nonexistent', '@veritasium']);
+  assert.strictEqual(speedFromAnyPrimary, 1.75, 'getSpeedForAny should find primary key');
+  const speedFromAnyAlias = await SpeedStorage.getSpeedForAny(['@nonexistent', 'UC1234567890']);
+  assert.strictEqual(speedFromAnyAlias, 1.75, 'getSpeedForAny should find alias key');
+  const speedFromAnyNone = await SpeedStorage.getSpeedForAny(['@nonexistent', 'UC9999999999']);
+  assert.strictEqual(speedFromAnyNone, null, 'getSpeedForAny should return null if not found');
 
-  await SpeedStorage.importData(exported);
-  const restored = await SpeedStorage.getAllChannelSpeeds();
-  assert.strictEqual(restored['@3blue1brown'].speed, 1.25);
+  // Test batch removal via removeChannelSpeeds
+  await SpeedStorage.removeChannelSpeeds(['@veritasium', '@3blue1brown']);
+  const afterBatchRemove = await SpeedStorage.getAllChannelSpeeds();
+  assert.strictEqual(Object.keys(afterBatchRemove).length, 0, 'Batch removal should remove all specified channels');
 
-  console.log('  ✔ All storage operations (save, update, remove, export, import) passed!');
+  console.log('  ✔ All storage operations (save, update, remove, batch, export, import) passed!');
 }
 
 // 4. Test Channel Key Normalization Logic

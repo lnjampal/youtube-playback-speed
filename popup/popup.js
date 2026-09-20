@@ -258,6 +258,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return (allSavedChannels[b].updatedAt || 0) - (allSavedChannels[a].updatedAt || 0);
     });
 
+    const fragment = document.createDocumentFragment();
+
     filteredKeys.forEach((key) => {
       const item = allSavedChannels[key];
       const div = document.createElement('div');
@@ -297,7 +299,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderSavedChannelsList(channelSearchInput.value);
 
         // If currently on this channel, reset it
-        if (activeChannel && activeChannel.id === item.id) {
+        if (activeChannel && (activeChannel.id === item.id || activeChannel.handle === item.id || activeChannel.channelId === item.id)) {
           resetActiveChannel();
         }
       });
@@ -308,8 +310,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       div.appendChild(metaDiv);
       div.appendChild(actionsDiv);
 
-      savedChannelsList.appendChild(div);
+      fragment.appendChild(div);
     });
+
+    savedChannelsList.appendChild(fragment);
   }
 
   /**
@@ -353,8 +357,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (activeChannel && activeChannel.id && window.SpeedStorage) {
       const keysToRemove = [activeChannel.id, activeChannel.handle, activeChannel.channelId].filter(Boolean);
-      for (const k of keysToRemove) {
-        await window.SpeedStorage.removeChannelSpeed(k);
+      if (typeof window.SpeedStorage.removeChannelSpeeds === 'function') {
+        await window.SpeedStorage.removeChannelSpeeds(keysToRemove);
+      } else {
+        for (const k of keysToRemove) {
+          await window.SpeedStorage.removeChannelSpeed(k);
+        }
       }
       await loadSavedChannels();
     }

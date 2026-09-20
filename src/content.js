@@ -410,17 +410,7 @@
     setTimeout(() => {
       window.dispatchEvent(new Event('resize'));
       window.dispatchEvent(new CustomEvent('yt-channel-speed:expand-video'));
-    }, 120);
-
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-      window.dispatchEvent(new CustomEvent('yt-channel-speed:expand-video'));
-    }, 350);
-
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-      window.dispatchEvent(new CustomEvent('yt-channel-speed:expand-video'));
-    }, 700);
+    }, 180);
   }
 
   /**
@@ -545,15 +535,21 @@
     // Also observe DOM in case chat iframe mounts asynchronously
     if (!hasAutoClosedLiveChatForThisVideo && typeof MutationObserver !== 'undefined') {
       if (liveChatObserver) liveChatObserver.disconnect();
+      let chatCheckPending = false;
       liveChatObserver = new MutationObserver(() => {
         if (navToken !== currentNavToken || hasAutoClosedLiveChatForThisVideo) {
           cleanupWatcher();
           return;
         }
-        checkAndClose();
+        if (chatCheckPending) return;
+        chatCheckPending = true;
+        setTimeout(() => {
+          chatCheckPending = false;
+          checkAndClose();
+        }, 120);
       });
 
-      const target = document.querySelector('ytd-app') || document.querySelector('ytd-watch-flexy, #columns, #primary') || document.body;
+      const target = document.querySelector('ytd-watch-flexy, #columns, #primary') || document.querySelector('ytd-app') || document.body;
       if (target) {
         liveChatObserver.observe(target, { childList: true, subtree: true });
         setTimeout(() => {
@@ -581,17 +577,26 @@
   }
 
   /**
-   * Watch for video element recreation or insertion
+   * Watch for video element recreation or insertion (throttled)
    */
+  let videoDetectionPending = false;
   function setupVideoDetection() {
-    videoObserver = new MutationObserver(() => {
+    const checkVideo = () => {
+      videoDetectionPending = false;
       const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
       if (video && video !== videoElement) {
         bindVideoElement();
       }
+    };
+
+    videoObserver = new MutationObserver(() => {
+      if (videoDetectionPending) return;
+      videoDetectionPending = true;
+      setTimeout(checkVideo, 150);
     });
 
-    videoObserver.observe(document.body || document.documentElement, {
+    const target = document.getElementById('movie_player') || document.querySelector('ytd-player') || document.body || document.documentElement;
+    videoObserver.observe(target, {
       childList: true,
       subtree: true,
     });
@@ -932,6 +937,10 @@
       channelInfo.channelId,
     ].filter(Boolean);
 
+    if (typeof window.SpeedStorage.getSpeedForAny === 'function') {
+      return window.SpeedStorage.getSpeedForAny(keysToCheck);
+    }
+
     for (const key of keysToCheck) {
       const speed = await window.SpeedStorage.getChannelSpeed(key);
       if (typeof speed === 'number' && Number.isFinite(speed)) {
@@ -1067,10 +1076,19 @@
     if (badgeSpan) badgeSpan.textContent = `${speed.toFixed(2).replace(/\.00$/, '')}x`;
     if (actionSpan) actionSpan.textContent = actionLabel;
 
-    // Trigger animation
+    // Trigger animation without synchronous layout thrashing
     hudElement.classList.remove('yt-speed-hud-visible');
-    void hudElement.offsetWidth; // force reflow
-    hudElement.classList.add('yt-speed-hud-visible');
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (hudElement) {
+            hudElement.classList.add('yt-speed-hud-visible');
+          }
+        });
+      });
+    } else {
+      hudElement.classList.add('yt-speed-hud-visible');
+    }
 
     if (hudTimeout) {
       clearTimeout(hudTimeout);
@@ -1130,7 +1148,11 @@
       if (request.action === 'RESET_CHANNEL_SPEED') {
         if (currentChannel && currentChannel.id && window.SpeedStorage) {
           const keysToRemove = [currentChannel.id, currentChannel.handle, currentChannel.channelId].filter(Boolean);
-          Promise.all(keysToRemove.map((k) => window.SpeedStorage.removeChannelSpeed(k))).then(() => {
+          const removePromise = typeof window.SpeedStorage.removeChannelSpeeds === 'function'
+            ? window.SpeedStorage.removeChannelSpeeds(keysToRemove)
+            : Promise.all(keysToRemove.map((k) => window.SpeedStorage.removeChannelSpeed(k)));
+
+          removePromise.then(() => {
             const defaultSpeed = settings.defaultSpeed || 1.0;
             applySpeedToPlayer(defaultSpeed);
             if (settings.showToast) {

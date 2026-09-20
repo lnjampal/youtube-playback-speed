@@ -139,6 +139,41 @@
   }
 
   /**
+   * Get saved playback speed for any of the provided candidate keys or aliases in a single storage read
+   * @param {string[]} channelKeys - Array of candidate keys e.g. [id, handle, channelId]
+   * @returns {Promise<number|null>}
+   */
+  async function getSpeedForAny(channelKeys) {
+    if (!Array.isArray(channelKeys) || channelKeys.length === 0) return null;
+    const validKeys = channelKeys.filter(isValidChannelKey);
+    if (validKeys.length === 0) return null;
+
+    const all = await getAllChannelSpeeds();
+
+    // 1. Direct key matches first (fast path)
+    for (const k of validKeys) {
+      const entry = all[k];
+      if (entry && typeof entry.speed === 'number') {
+        return entry.speed;
+      }
+    }
+
+    // 2. Search aliases across channels
+    for (const key of Object.keys(all)) {
+      const item = all[key];
+      if (item && Array.isArray(item.aliases) && typeof item.speed === 'number') {
+        for (const k of validKeys) {
+          if (item.aliases.includes(k)) {
+            return item.speed;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Save or update the playback speed for a channel, optionally with aliases
    * @param {string} channelKey - Primary channel handle or ID
    * @param {string} channelName - Human-readable channel name
@@ -174,12 +209,21 @@
     const mergedAliases = Array.from(new Set([...existingAliases, ...validAliases]))
       .filter((a) => isValidChannelKey(a) && a !== channelKey);
 
-    // Prevent excessive storage usage (cap at 2000 channels)
+    // Prevent excessive storage usage (cap at 2000 channels) - O(N) linear scan
     const keys = Object.keys(all);
     if (keys.length >= 2000 && !all[channelKey]) {
-      // Remove oldest entry
-      keys.sort((a, b) => (all[a].updatedAt || 0) - (all[b].updatedAt || 0));
-      delete all[keys[0]];
+      let oldestKey = null;
+      let oldestTime = Infinity;
+      for (const k of keys) {
+        const time = typeof all[k].updatedAt === 'number' ? all[k].updatedAt : 0;
+        if (time < oldestTime) {
+          oldestTime = time;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey) {
+        delete all[oldestKey];
+      }
     }
 
     all[channelKey] = {
@@ -199,19 +243,36 @@
    */
   async function removeChannelSpeed(channelKey) {
     if (!isValidChannelKey(channelKey)) return;
+    return removeChannelSpeeds([channelKey]);
+  }
+
+  /**
+   * Remove multiple channel keys and aliases in a single storage read/write operation
+   * @param {string[]} channelKeys
+   */
+  async function removeChannelSpeeds(channelKeys) {
+    if (!Array.isArray(channelKeys) || channelKeys.length === 0) return;
+    const keysSet = new Set(channelKeys.filter(isValidChannelKey));
+    if (keysSet.size === 0) return;
+
     const all = await getAllChannelSpeeds();
     let modified = false;
 
-    if (channelKey in all) {
-      delete all[channelKey];
-      modified = true;
+    for (const key of keysSet) {
+      if (key in all) {
+        delete all[key];
+        modified = true;
+      }
     }
 
-    // Also remove from aliases, or remove primary if key matches an alias
+    // Also remove from aliases
     for (const key of Object.keys(all)) {
-      if (all[key].aliases && all[key].aliases.includes(channelKey)) {
-        all[key].aliases = all[key].aliases.filter((a) => a !== channelKey);
-        modified = true;
+      if (all[key].aliases && Array.isArray(all[key].aliases)) {
+        const prevLen = all[key].aliases.length;
+        all[key].aliases = all[key].aliases.filter((a) => !keysSet.has(a));
+        if (all[key].aliases.length !== prevLen) {
+          modified = true;
+        }
       }
     }
 
@@ -374,8 +435,10 @@
     DEFAULT_SETTINGS,
     getAllChannelSpeeds,
     getChannelSpeed,
+    getSpeedForAny,
     saveChannelSpeed,
     removeChannelSpeed,
+    removeChannelSpeeds,
     clearAllChannelSpeeds,
     getSettings,
     updateSettings,

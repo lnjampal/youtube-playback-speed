@@ -61,6 +61,15 @@ class MockElement {
   setAttribute(name, val) { this.attributes[name] = String(val); }
 
   appendChild(child) {
+    if (!child) return child;
+    if (child.tagName === 'DOCUMENT-FRAGMENT' || child.nodeType === 11) {
+      while (child.children.length > 0) {
+        const c = child.children.shift();
+        c.parentNode = this;
+        this.children.push(c);
+      }
+      return child;
+    }
     child.parentNode = this;
     this.children.push(child);
     return child;
@@ -227,6 +236,7 @@ global.document = {
     return root.querySelectorAll(sel);
   },
   createElement: (tag) => new MockElement(tag),
+  createDocumentFragment: () => new MockElement('document-fragment'),
   addEventListener: (event, cb) => {
     if (event === 'DOMContentLoaded') global.__domContentLoaded = cb;
   }
