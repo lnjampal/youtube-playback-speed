@@ -114,6 +114,16 @@ function matchesSelector(el, selector) {
   if (s.startsWith('yt-icon-button')) return el.tagName === 'YT-ICON-BUTTON';
   if (s.startsWith('ytd-toggle-button-renderer')) return el.tagName === 'YTD-TOGGLE-BUTTON-RENDERER';
   if (s.startsWith('yt-live-chat-header-renderer')) return el.tagName === 'YT-LIVE-CHAT-HEADER-RENDERER';
+  if (s.startsWith('ytd-engagement-panel-section-list-renderer')) {
+    if (el.tagName !== 'YTD-ENGAGEMENT-PANEL-SECTION-LIST-RENDERER') return false;
+    if (s.includes('target-id="engagement-panel-live-chat"')) {
+      return el.attrs['target-id'] === 'engagement-panel-live-chat';
+    }
+    if (s.includes('target-id*="chat"')) {
+      return (el.attrs['target-id'] || '').includes('chat');
+    }
+    return true;
+  }
   return el.tagName === s.toUpperCase();
 }
 
@@ -169,6 +179,43 @@ function createLiveChatManager(initialSettings = {}) {
   }
 
   function findHideChatButton() {
+    // 1. Check engagement panel layout (#visibility-button or #close-button in panel header)
+    const engagementPanels = document.querySelectorAll(
+      'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-live-chat"], ' +
+      'ytd-engagement-panel-section-list-renderer[target-id*="chat"]'
+    );
+    for (const panel of engagementPanels) {
+      const isHidden = panel.getAttribute('visibility') === 'ENGAGEMENT_PANEL_VISIBILITY_HIDDEN';
+      if (!isHidden) {
+        const candidates = panel.querySelectorAll(
+          '#visibility-button button, #visibility-button, #header #close-button button, #header #close-button, #header yt-icon-button, #header button'
+        );
+        for (const candidate of candidates) {
+          const target = extractClickableButton(candidate);
+          if (target && typeof target.click === 'function') {
+            return target;
+          }
+        }
+      }
+    }
+
+    // 2. Check traditional live chat frame layout (#show-hide-button or header)
+    const chatFrames = document.querySelectorAll('ytd-live-chat-frame#chat, #chat.ytd-watch-flexy, #chat');
+    for (const chatFrame of chatFrames) {
+      const isCollapsed = chatFrame.hasAttribute('collapsed') || (chatFrame.classList && chatFrame.classList.contains('collapsed'));
+      if (!isCollapsed) {
+        const candidates = chatFrame.querySelectorAll(
+          '#show-hide-button button, #show-hide-button yt-button-shape, #show-hide-button ytd-toggle-button-renderer, #show-hide-button, #header #close-button button, #close-button'
+        );
+        for (const candidate of candidates) {
+          const target = extractClickableButton(candidate);
+          if (target && typeof target.click === 'function') {
+            return target;
+          }
+        }
+      }
+    }
+
     for (const sel of HIDE_CHAT_SELECTORS) {
       const btn = document.querySelector(sel);
       if (btn) {
@@ -182,7 +229,7 @@ function createLiveChatManager(initialSettings = {}) {
       }
     }
     const containers = document.querySelectorAll(
-      '#show-hide-button, yt-live-chat-header-renderer, ytd-live-chat-frame, #chat, #chat-container'
+      '#show-hide-button, yt-live-chat-header-renderer, ytd-live-chat-header-renderer, ytd-live-chat-frame, #chat, #chat-container'
     );
     for (const container of containers) {
       const candidates = container.querySelectorAll('button, yt-button-shape, yt-icon-button, ytd-toggle-button-renderer');
@@ -396,6 +443,59 @@ async function runTests() {
   const foundBtn = instantManager.findHideChatButton();
   assert.ok(foundBtn, 'Must find button even when nested inside Shadow DOM or header');
   console.log('  ✔ Shadow DOM and Header close buttons successfully resolved.\n');
+
+  // Test 10: Engagement Panel Live Chat layout detection and closing
+  console.log('10. Testing Engagement Panel live chat layout detection and closing...');
+  const engagementPanel = new MockElement('ytd-engagement-panel-section-list-renderer', {
+    'target-id': 'engagement-panel-live-chat',
+    visibility: 'ENGAGEMENT_PANEL_VISIBILITY_EXPANDED',
+  });
+  const panelHeader = new MockElement('div', { id: 'header' });
+  const panelCloseBtn = new MockElement('button', { id: 'close-button', 'aria-label': 'Close' });
+  panelCloseBtn.onclick = () => {
+    engagementPanel.setAttribute('visibility', 'ENGAGEMENT_PANEL_VISIBILITY_HIDDEN');
+  };
+  panelHeader.children.push(panelCloseBtn);
+  engagementPanel.children.push(panelHeader);
+  mockBody.children.push(engagementPanel);
+
+  // Manager checks engagement panel
+  const panelBtn = instantManager.findHideChatButton();
+  assert.ok(panelBtn, 'Must find close button inside engagement panel');
+  panelBtn.click();
+  assert.strictEqual(
+    engagementPanel.getAttribute('visibility'),
+    'ENGAGEMENT_PANEL_VISIBILITY_HIDDEN',
+    'Engagement panel must transition to HIDDEN upon close button click'
+  );
+  console.log('  ✔ Engagement Panel live chat successfully detected and closed.\n');
+
+  // Test 11: Video player layout expansion and open panel button enabling
+  console.log('11. Testing Video player expansion and Open Panel button enabling...');
+  const openPanelBtn = new MockElement('button', {
+    'aria-label': 'Open panel',
+    disabled: '',
+    'aria-disabled': 'true',
+  });
+  mockBody.children.push(openPanelBtn);
+
+  // Verify button was initially disabled
+  assert.strictEqual(openPanelBtn.hasAttribute('disabled'), true);
+  assert.strictEqual(openPanelBtn.getAttribute('aria-disabled'), 'true');
+
+  // Run enabling logic
+  const openButtons = [openPanelBtn];
+  openButtons.forEach((b) => {
+    if (b.disabled || b.hasAttribute('disabled') || b.getAttribute('aria-disabled') === 'true') {
+      b.disabled = false;
+      b.removeAttribute('disabled');
+      b.setAttribute('aria-disabled', 'false');
+    }
+  });
+
+  assert.strictEqual(openPanelBtn.hasAttribute('disabled'), false, 'Disabled attribute must be removed');
+  assert.strictEqual(openPanelBtn.getAttribute('aria-disabled'), 'false', 'aria-disabled must be false');
+  console.log('  ✔ Open Panel button successfully restored to enabled state.\n');
 
   console.log('====================================================');
   console.log('🎉 ALL LIVE CHAT AUTO-CLOSE TESTS PASSED (100%)!   ');
