@@ -121,4 +121,28 @@
       })
     );
   });
+
+  /**
+   * Listen for request to force-expand the video player and recalculate layout
+   */
+  window.addEventListener('yt-channel-speed:expand-video', () => {
+    try {
+      window.dispatchEvent(new Event('resize'));
+      const flexy = document.querySelector('ytd-watch-flexy');
+      if (flexy) {
+        if (typeof flexy.calculateLayout_ === 'function') {
+          flexy.calculateLayout_();
+        }
+        if (typeof flexy.handleResize_ === 'function') {
+          flexy.handleResize_();
+        }
+      }
+      const player = getMoviePlayer();
+      if (player && typeof player.setInternalSize === 'function') {
+        player.setInternalSize();
+      }
+    } catch (e) {
+      // Ignore
+    }
+  });
 })();

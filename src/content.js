@@ -326,10 +326,47 @@
 
   /**
    * Resiliently locate the native YouTube "Hide chat" or "Close" button,
-   * inspecting both light DOM and Shadow DOM boundaries.
+   * inspecting engagement panels, chat frame, header close buttons, and shadow DOM.
    */
   function findHideChatButton() {
-    // 1. Check known selectors
+    // 1. Check engagement panel layout (#visibility-button or #close-button in panel header)
+    const engagementPanels = document.querySelectorAll(
+      'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-live-chat"], ' +
+      'ytd-engagement-panel-section-list-renderer[target-id*="chat"]'
+    );
+    for (const panel of engagementPanels) {
+      const isHidden = panel.getAttribute('visibility') === 'ENGAGEMENT_PANEL_VISIBILITY_HIDDEN';
+      if (!isHidden) {
+        const candidates = panel.querySelectorAll(
+          '#visibility-button button, #visibility-button, #header #close-button button, #header #close-button, #header yt-icon-button, #header button'
+        );
+        for (const candidate of candidates) {
+          const target = extractClickableButton(candidate);
+          if (target && typeof target.click === 'function') {
+            return target;
+          }
+        }
+      }
+    }
+
+    // 2. Check traditional live chat frame layout (#show-hide-button or header)
+    const chatFrames = document.querySelectorAll('ytd-live-chat-frame#chat, #chat.ytd-watch-flexy, #chat');
+    for (const chatFrame of chatFrames) {
+      const isCollapsed = chatFrame.hasAttribute('collapsed') || (chatFrame.classList && chatFrame.classList.contains('collapsed'));
+      if (!isCollapsed) {
+        const candidates = chatFrame.querySelectorAll(
+          '#show-hide-button button, #show-hide-button yt-button-shape, #show-hide-button ytd-toggle-button-renderer, #show-hide-button, #header #close-button button, #close-button'
+        );
+        for (const candidate of candidates) {
+          const target = extractClickableButton(candidate);
+          if (target && typeof target.click === 'function') {
+            return target;
+          }
+        }
+      }
+    }
+
+    // 3. Scan known selectors
     for (const sel of HIDE_CHAT_SELECTORS) {
       const btn = document.querySelector(sel);
       if (btn) {
@@ -343,7 +380,7 @@
       }
     }
 
-    // 2. Scan containers (header and show-hide toggle)
+    // 4. Scan containers (header and show-hide toggle)
     const containers = document.querySelectorAll(
       '#show-hide-button, yt-live-chat-header-renderer, ytd-live-chat-header-renderer, ytd-live-chat-frame, #chat, #chat-container'
     );
@@ -361,6 +398,47 @@
     }
 
     return null;
+  }
+
+  /**
+   * Notify YouTube's layout engine to recalculate and expand the video player
+   */
+  function triggerPlayerExpansion() {
+    window.dispatchEvent(new Event('resize'));
+    window.dispatchEvent(new CustomEvent('yt-channel-speed:expand-video'));
+
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+      window.dispatchEvent(new CustomEvent('yt-channel-speed:expand-video'));
+    }, 120);
+
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+      window.dispatchEvent(new CustomEvent('yt-channel-speed:expand-video'));
+    }, 350);
+
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+      window.dispatchEvent(new CustomEvent('yt-channel-speed:expand-video'));
+    }, 700);
+  }
+
+  /**
+   * Ensure any "Open panel" or "Show chat" toggle buttons are enabled and not locked in disabled state
+   */
+  function enableOpenPanelButton() {
+    const openButtons = document.querySelectorAll(
+      'button[aria-label*="Open panel" i], button[aria-label*="Show chat" i], ' +
+      'yt-button-shape button[aria-label*="Open panel" i], yt-button-shape button[aria-label*="Show chat" i], ' +
+      '#show-hide-button button, ytd-button-renderer#show-hide-button button'
+    );
+    openButtons.forEach((b) => {
+      if (b.disabled || b.hasAttribute('disabled') || b.getAttribute('aria-disabled') === 'true') {
+        b.disabled = false;
+        b.removeAttribute('disabled');
+        b.setAttribute('aria-disabled', 'false');
+      }
+    });
   }
 
   /**
@@ -396,42 +474,46 @@
         return;
       }
 
-      // Check if chat container/frame exists in DOM
+      // 1. Check engagement panel layout
+      const engagementPanel = document.querySelector(
+        'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-live-chat"], ' +
+        'ytd-engagement-panel-section-list-renderer[target-id*="chat"]'
+      );
+      const isEngagementPanelOpen = engagementPanel &&
+        engagementPanel.getAttribute('visibility') !== 'ENGAGEMENT_PANEL_VISIBILITY_HIDDEN';
+
+      // 2. Check traditional chat frame
       const chatFrame = document.querySelector('ytd-live-chat-frame#chat, #chat.ytd-watch-flexy, #chat');
-      if (chatFrame) {
-        const isCollapsed = chatFrame.hasAttribute('collapsed') || (chatFrame.classList && chatFrame.classList.contains('collapsed'));
+      const isChatFrameOpen = chatFrame &&
+        !chatFrame.hasAttribute('collapsed') &&
+        !(chatFrame.classList && chatFrame.classList.contains('collapsed'));
 
-        // Only attempt to close if it is currently OPEN (not collapsed)
-        if (!isCollapsed) {
-          const btn = findHideChatButton();
-          let closed = false;
+      if (isEngagementPanelOpen || isChatFrameOpen) {
+        const btn = findHideChatButton();
+        let closed = false;
 
-          if (btn && typeof btn.click === 'function') {
-            btn.click();
-            btn.dispatchEvent(new MouseEvent('click', {
-              bubbles: true,
-              cancelable: true,
-              composed: true, // Allows event to cross Shadow DOM boundary
-              view: window,
-            }));
-            closed = true;
-          }
-
-          // Fallback: apply native collapsed state directly to ensure immediate visual closure
-          chatFrame.setAttribute('collapsed', '');
-          if ('collapsed' in chatFrame) {
-            chatFrame.collapsed = true;
-          }
+        if (btn && typeof btn.click === 'function') {
+          btn.click();
+          btn.dispatchEvent(new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            composed: true, // Allows event to cross Shadow DOM boundary
+            view: window,
+          }));
           closed = true;
+        }
 
-          if (closed) {
-            // Once closed on the first load, mark done and stop all further checks/observers
-            hasAutoClosedLiveChatForThisVideo = true;
-            cleanupWatcher();
-            return;
-          }
-        } else if (hasAutoClosedLiveChatForThisVideo) {
+        if (closed) {
+          // Once closed on the first load, mark done and stop all further checks/observers
+          hasAutoClosedLiveChatForThisVideo = true;
           cleanupWatcher();
+
+          // Force layout recalculation so the video player immediately expands
+          triggerPlayerExpansion();
+
+          // Ensure the "Open panel" / "Show chat" button is enabled and not locked
+          setTimeout(enableOpenPanelButton, 100);
+          setTimeout(enableOpenPanelButton, 350);
           return;
         }
       }
@@ -440,6 +522,19 @@
       if (attempts < maxAttempts && !hasAutoClosedLiveChatForThisVideo) {
         liveChatCheckTimer = setTimeout(checkAndClose, 250);
       } else {
+        // Fallback if max attempts reached and chat still open
+        if (!hasAutoClosedLiveChatForThisVideo) {
+          if (engagementPanel && isEngagementPanelOpen) {
+            engagementPanel.setAttribute('visibility', 'ENGAGEMENT_PANEL_VISIBILITY_HIDDEN');
+          }
+          if (chatFrame && isChatFrameOpen) {
+            chatFrame.setAttribute('collapsed', '');
+            if ('collapsed' in chatFrame) chatFrame.collapsed = true;
+          }
+          enableOpenPanelButton();
+          triggerPlayerExpansion();
+          hasAutoClosedLiveChatForThisVideo = true;
+        }
         cleanupWatcher();
       }
     }
