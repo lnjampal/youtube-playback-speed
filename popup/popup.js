@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const tab = tabs[0];
       activeTabId = tab.id;
 
-      if (!tab.url || (!tab.url.includes('youtube.com/watch') && !tab.url.includes('youtube.com/shorts'))) {
+      if (!tab.url || (!tab.url.includes('youtube.com/watch') && !tab.url.includes('youtube.com/shorts') && !tab.url.includes('youtube.com/live') && !tab.url.includes('/live'))) {
         showNoVideoState();
         return;
       }
@@ -589,10 +589,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function notifyActiveTabSettingsUpdated() {
+    // Send to active tab immediately
     if (activeTabId) {
       chrome.tabs.sendMessage(activeTabId, { action: 'SETTINGS_UPDATED' }, () => {
-        if (chrome.runtime.lastError) {
-          // Ignored
+        if (chrome.runtime.lastError) { /* ignore */ }
+      });
+    }
+    // Also broadcast to all open YouTube tabs so all windows/tabs activate Pro instantly
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+      chrome.tabs.query({ url: '*://*.youtube.com/*' }, (tabs) => {
+        if (tabs && tabs.length > 0) {
+          tabs.forEach((t) => {
+            if (t.id && t.id !== activeTabId) {
+              chrome.tabs.sendMessage(t.id, { action: 'SETTINGS_UPDATED' }, () => {
+                if (chrome.runtime.lastError) { /* ignore */ }
+              });
+            }
+          });
         }
       });
     }

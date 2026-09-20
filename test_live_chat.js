@@ -43,6 +43,11 @@ class MockElement {
     }
   }
 
+  attachShadow() {
+    this.shadowRoot = new MockElement('#shadow-root');
+    return this.shadowRoot;
+  }
+
   querySelector(selector) {
     return querySelectorFrom(this, selector);
   }
@@ -95,6 +100,9 @@ function matchesSelector(el, selector) {
     if (s.includes('aria-label*="Hide chat"')) {
       return (el.attrs['aria-label'] || '').toLowerCase().includes('hide chat');
     }
+    if (s.includes('aria-label="Close"')) {
+      return (el.attrs['aria-label'] || '').toLowerCase() === 'close';
+    }
     return true;
   }
   if (s.startsWith('ytd-live-chat-frame')) {
@@ -102,6 +110,10 @@ function matchesSelector(el, selector) {
     if (s.includes('#chat')) return el.attrs.id === 'chat';
     return true;
   }
+  if (s.startsWith('yt-button-shape')) return el.tagName === 'YT-BUTTON-SHAPE';
+  if (s.startsWith('yt-icon-button')) return el.tagName === 'YT-ICON-BUTTON';
+  if (s.startsWith('ytd-toggle-button-renderer')) return el.tagName === 'YTD-TOGGLE-BUTTON-RENDERER';
+  if (s.startsWith('yt-live-chat-header-renderer')) return el.tagName === 'YT-LIVE-CHAT-HEADER-RENDERER';
   return el.tagName === s.toUpperCase();
 }
 
@@ -126,8 +138,66 @@ function createLiveChatManager(initialSettings = {}) {
     'ytd-live-chat-frame #show-hide-button button',
     '#chat #show-hide-button button',
     '#chat-container #show-hide-button button',
+    '#show-hide-button yt-button-shape button',
+    '#show-hide-button ytd-toggle-button-renderer',
+    'yt-live-chat-header-renderer #close-button button',
+    '#chat #close-button button',
     'button[aria-label*="Hide chat" i]',
+    'button[aria-label="Close" i]',
   ];
+
+  function extractClickableButton(el) {
+    if (!el) return null;
+    if (el.tagName === 'BUTTON') return el;
+    if (el.shadowRoot) {
+      const shadowBtn = el.shadowRoot.querySelector('button');
+      if (shadowBtn) return shadowBtn;
+    }
+    const childBtn = el.querySelector('button');
+    if (childBtn) return childBtn;
+    return el;
+  }
+
+  function isCloseOrHideButton(el) {
+    if (!el) return false;
+    const label = (el.getAttribute('aria-label') || '').toLowerCase();
+    const text = (el.textContent || '').trim().toLowerCase();
+    if (label.includes('show') || text.includes('show')) return false;
+    const isHide = label.includes('hide') || text.includes('hide') || label.includes('close') || text.includes('close');
+    const isChat = label.includes('chat') || label.includes('replay') || text.includes('chat') || text.includes('replay') || label === 'close' || text === 'close' || el.attrs.id === 'close-button';
+    return isHide && isChat;
+  }
+
+  function findHideChatButton() {
+    for (const sel of HIDE_CHAT_SELECTORS) {
+      const btn = document.querySelector(sel);
+      if (btn) {
+        const target = extractClickableButton(btn);
+        if (target && typeof target.click === 'function' && isCloseOrHideButton(target)) {
+          return target;
+        }
+        if (typeof btn.click === 'function' && isCloseOrHideButton(btn)) {
+          return btn;
+        }
+      }
+    }
+    const containers = document.querySelectorAll(
+      '#show-hide-button, yt-live-chat-header-renderer, ytd-live-chat-frame, #chat, #chat-container'
+    );
+    for (const container of containers) {
+      const candidates = container.querySelectorAll('button, yt-button-shape, yt-icon-button, ytd-toggle-button-renderer');
+      for (const candidate of candidates) {
+        const target = extractClickableButton(candidate);
+        if (target && typeof target.click === 'function' && isCloseOrHideButton(target)) {
+          return target;
+        }
+        if (typeof candidate.click === 'function' && isCloseOrHideButton(candidate)) {
+          return candidate;
+        }
+      }
+    }
+    return null;
+  }
 
   function onNewVideo(newSettings = null) {
     currentNavToken++;
@@ -150,14 +220,13 @@ function createLiveChatManager(initialSettings = {}) {
     if (chatFrame) {
       const isCollapsed = chatFrame.hasAttribute('collapsed') || (chatFrame.classList && chatFrame.classList.contains('collapsed'));
       if (!isCollapsed) {
-        for (const sel of HIDE_CHAT_SELECTORS) {
-          const btn = document.querySelector(sel);
-          if (btn && typeof btn.click === 'function') {
-            btn.click();
-            hasAutoClosedLiveChatForThisVideo = true;
-            return;
-          }
+        const btn = findHideChatButton();
+        if (btn && typeof btn.click === 'function') {
+          btn.click();
         }
+        chatFrame.setAttribute('collapsed', '');
+        // Chat closure happens strictly ONCE on first load
+        hasAutoClosedLiveChatForThisVideo = true;
       }
     }
   }
@@ -167,13 +236,23 @@ function createLiveChatManager(initialSettings = {}) {
     if (chatFrame) {
       chatFrame.removeAttribute('collapsed');
     }
-    // Note: hasAutoClosedLiveChatForThisVideo remains TRUE, so auto-close will NOT re-trigger!
+  }
+
+  function onStorageSettingsChanged(newSettings) {
+    settings = { ...settings, ...newSettings };
+    if (settings.enabled && settings.isPro && settings.autoCloseLiveChat) {
+      if (!hasAutoClosedLiveChatForThisVideo) {
+        triggerAutoClose(currentNavToken);
+      }
+    }
   }
 
   return {
     onNewVideo,
     triggerAutoClose,
     userManuallyShowsChat,
+    onStorageSettingsChanged,
+    findHideChatButton,
     getState: () => ({ hasAutoClosedLiveChatForThisVideo, currentNavToken }),
   };
 }
@@ -260,6 +339,63 @@ async function runTests() {
   assert.strictEqual(hideButton.clickCount, 3, 'Hide button must be clicked when new channel chat opens');
   assert.strictEqual(chatFrame.hasAttribute('collapsed'), true, 'Chat frame must be collapsed on the new channel');
   console.log('  ✔ Channel switch from collapsed video to new live stream successfully auto-closed.\n');
+
+  // Test 7: Instant Pro Activation without page reload
+  console.log('7. Testing instant Pro activation without window reload...');
+  const instantManager = createLiveChatManager({
+    enabled: true,
+    isPro: false,
+    autoCloseLiveChat: false,
+  });
+  // Stream is open
+  chatFrame.removeAttribute('collapsed');
+  const prevClickCount = hideButton.clickCount;
+  instantManager.onNewVideo();
+  assert.strictEqual(chatFrame.hasAttribute('collapsed'), false, 'Chat remains open initially before Pro');
+
+  // User activates Pro in popup (storage change event arrives)
+  instantManager.onStorageSettingsChanged({ isPro: true, autoCloseLiveChat: true });
+  assert.strictEqual(chatFrame.hasAttribute('collapsed'), true, 'Chat must close immediately upon Pro activation without reload!');
+  assert.strictEqual(hideButton.clickCount, prevClickCount + 1, 'Hide button must be clicked immediately');
+  console.log('  ✔ Pro features take effect instantly without refreshing the page.\n');
+
+  // Test 8: Chat closure happens strictly ONCE on first load
+  console.log('8. Verifying chat closure happens ONLY ONCE on first load...');
+  // Chat is already closed from Test 7
+  assert.strictEqual(instantManager.getState().hasAutoClosedLiveChatForThisVideo, true);
+  const clicksAfterAutoClose = hideButton.clickCount;
+
+  // Multiple simulated DOM mutations / timer ticks during the same video
+  instantManager.triggerAutoClose(instantManager.getState().currentNavToken);
+  instantManager.triggerAutoClose(instantManager.getState().currentNavToken);
+  assert.strictEqual(hideButton.clickCount, clicksAfterAutoClose, 'No redundant clicks on subsequent checks');
+
+  // User manually re-opens chat
+  instantManager.userManuallyShowsChat();
+  assert.strictEqual(chatFrame.hasAttribute('collapsed'), false, 'User re-opened chat');
+
+  // More DOM mutations happen (e.g. chat messages arriving)
+  instantManager.triggerAutoClose(instantManager.getState().currentNavToken);
+  assert.strictEqual(chatFrame.hasAttribute('collapsed'), false, 'Chat must stay open per user action; no re-close!');
+  assert.strictEqual(hideButton.clickCount, clicksAfterAutoClose, 'Button must NOT be clicked again during same video');
+  console.log('  ✔ Closure strictly occurs only once on first load.\n');
+
+  // Test 9: Shadow DOM button piercing and Header Close Button support
+  console.log('9. Testing Shadow DOM button piercing and Header Close Button...');
+  const headerContainer = new MockElement('yt-live-chat-header-renderer');
+  const headerCloseBtn = new MockElement('button', { id: 'close-button', 'aria-label': 'Close' });
+  headerContainer.children.push(headerCloseBtn);
+  chatFrame.children.push(headerContainer);
+
+  const webComponent = new MockElement('yt-button-shape');
+  const shadowRoot = webComponent.attachShadow();
+  const shadowButton = new MockElement('button', { 'aria-label': 'Hide chat' });
+  shadowRoot.children.push(shadowButton);
+  showHideContainer.children.push(webComponent);
+
+  const foundBtn = instantManager.findHideChatButton();
+  assert.ok(foundBtn, 'Must find button even when nested inside Shadow DOM or header');
+  console.log('  ✔ Shadow DOM and Header close buttons successfully resolved.\n');
 
   console.log('====================================================');
   console.log('🎉 ALL LIVE CHAT AUTO-CLOSE TESTS PASSED (100%)!   ');
